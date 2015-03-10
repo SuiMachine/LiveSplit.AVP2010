@@ -65,7 +65,7 @@ namespace LiveSplit.AVP2010
 
         public string UpdateURL
         {
-            get { return "https://raw.githubusercontent.com/SuiMachine/LiveSplit.AVP2010/Master/"; }
+            get { return "https://raw.githubusercontent.com/SuiMachine/LiveSplit.AVP2010/master/"; }
         }
 
         public Version Version
