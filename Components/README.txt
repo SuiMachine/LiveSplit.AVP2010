@@ -7,14 +7,6 @@ Features
 --------
   * Keeps track of Game Time to get rid of loading times.
 
-Requirements
-------------
-
-  * Current version Aliens vs. Predator (2010) on Steam (Cracked and previous versions are not supported)
-  * Game has to be running DX11 renderer.
-  * LiveSplit 1.4+
-  * .NET Framework 4  
-
 Install
 -------
 Starting with LiveSplit 1.4, you can download and install LiveSplit.AVP2010 automatically from within the Splits Editor with just one click. Just type in "Aliens vs. Predator (2010)" and click Activate. This downloads LiveSplit.AVP2010 to the Components folder.
@@ -36,4 +28,3 @@ Credits
   * [jamacanbacn](http://www.twitch.tv/jamacanbacn) for re-scanning my pointers.
   * [DrTChops](http://twitch.tv/drtchops) for helping me with it.
   * Plugin is based off [LiveSplit.Dishonored](https://github.com/fatalis/LiveSplit.Dishonored) by [Fatalis](http://twitch.tv/fatalis_).
-

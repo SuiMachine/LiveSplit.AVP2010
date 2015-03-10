@@ -1,6 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -9,103 +10,153 @@ namespace LiveSplit.AVP2010
 {
     class GameMemory
     {
-        public event EventHandler<LoadingChangedEventArgs> OnLoadingChanged; 
+        public event EventHandler OnLoadStarted;
+        public event EventHandler OnLoadFinished;
 
         private Task _thread;
-        private SynchronizationContext _uiThread;
         private CancellationTokenSource _cancelSource;
+        private SynchronizationContext _uiThread;
+        private List<int> _ignorePIDs;
 
-        public void StartReading()
+        private DeepPointer _IsLoading;
+
+        public void resetSplitStates()
+        {
+        }
+
+        public GameMemory(AVP2010Settings componentSettings)
+        {
+            _IsLoading = new DeepPointer(0x000FB610, 0x60);
+            resetSplitStates();
+
+            _ignorePIDs = new List<int>();
+        }
+
+        public void StartMonitoring()
         {
             if (_thread != null && _thread.Status == TaskStatus.Running)
+            {
                 throw new InvalidOperationException();
+            }
             if (!(SynchronizationContext.Current is WindowsFormsSynchronizationContext))
+            {
                 throw new InvalidOperationException("SynchronizationContext.Current is not a UI thread.");
+            }
 
-            _cancelSource = new CancellationTokenSource();
             _uiThread = SynchronizationContext.Current;
-            _thread = Task.Factory.StartNew(() => MemoryReadThread(_cancelSource));
+            _cancelSource = new CancellationTokenSource();
+            _thread = Task.Factory.StartNew(MemoryReadThread);
         }
 
         public void Stop()
         {
             if (_cancelSource == null || _thread == null || _thread.Status != TaskStatus.Running)
+            {
                 return;
+            }
 
             _cancelSource.Cancel();
             _thread.Wait();
         }
 
-        void MemoryReadThread(CancellationTokenSource cts)
+        void MemoryReadThread()
         {
-            while (true)
+            Debug.WriteLine("[NoLoads] MemoryReadThread");
+
+            while (!_cancelSource.IsCancellationRequested)
             {
                 try
                 {
+                    Debug.WriteLine("[NoLoads] Waiting for AvP_DX11.exe...");
+                    uint frameCounter = 0;
+                    
                     Process game;
-                    while (!this.TryGetGameProcess(out game))
+                    while ((game = GetGameProcess()) == null)
                     {
-                        Thread.Sleep(500);
-
-                        if (cts.IsCancellationRequested)
-                            goto ret;
+                        Thread.Sleep(250);
+                        if (_cancelSource.IsCancellationRequested)
+                        {
+                            return;
+                        }
                     }
 
-                    this.HandleProcess(game, cts);
+                    Debug.WriteLine("[NoLoads] Got games process!");
 
-                    if (cts.IsCancellationRequested)
-                        goto ret;
+                    bool isActuallyLoading;
+                    bool prevIsActuallyLoading = false;
+                    bool loadingStarted = false;
+
+                    while (!game.HasExited)
+                    {
+                        _IsLoading.Deref(game, out isActuallyLoading);
+
+                        if (isActuallyLoading != prevIsActuallyLoading)
+                        {
+                            if (isActuallyLoading)
+                            {
+                                Debug.WriteLine(String.Format("[NoLoads] Load Start - {0}", frameCounter));
+
+                                loadingStarted = true;
+
+                                // pause game timer
+                                _uiThread.Post(d =>
+                                {
+                                    if (this.OnLoadStarted != null)
+                                    {
+                                        this.OnLoadStarted(this, EventArgs.Empty);
+                                    }
+                                }, null);
+
+                            }
+                            else
+                            {
+                                Debug.WriteLine(String.Format("[NoLoads] Load End - {0}", frameCounter));
+
+                                if (loadingStarted)
+                                {
+                                    loadingStarted = false;
+
+                                    // unpause game timer
+                                    _uiThread.Post(d =>
+                                    {
+                                        if (this.OnLoadFinished != null)
+                                        {
+                                            this.OnLoadFinished(this, EventArgs.Empty);
+                                        }
+                                    }, null);
+                                }
+                            }
+                        }
+
+                        prevIsActuallyLoading = isActuallyLoading;
+
+                        frameCounter++;
+
+                        Thread.Sleep(15);
+
+                        if (_cancelSource.IsCancellationRequested)
+                        {
+                            return;
+                        }
+                    }
                 }
-                catch (Exception ex) // probably a Win32Exception on access denied to a process
+                catch (Exception ex)
                 {
-                    Trace.WriteLine(ex.ToString());
+                    Debug.WriteLine(ex.ToString());
                     Thread.Sleep(1000);
                 }
             }
-
-        ret: ;
         }
 
-        bool TryGetGameProcess(out Process p)
+        Process GetGameProcess()
         {
-            p = Process.GetProcesses().FirstOrDefault(x => x.ProcessName.ToLower() == "avp_dx11");
-            if (p == null || p.HasExited)
-                return false;
-
-            return true;
-        }
-
-        void HandleProcess(Process game, CancellationTokenSource cts)
-        {
-            bool prevIsLoading = false;
-
-            while (!game.HasExited && !cts.IsCancellationRequested)
+            Process game = Process.GetProcesses().FirstOrDefault(p => p.ProcessName.ToLower() == "avp_dx11" && !p.HasExited && !_ignorePIDs.Contains(p.Id));
+            if (game == null)
             {
-                bool isLoading;
-                game.ReadBool(game.MainModule.BaseAddress + 0x5DB770, out isLoading);
-
-                if (isLoading != prevIsLoading)
-                {
-                    _uiThread.Post(d => {
-                        if (this.OnLoadingChanged != null)
-                            this.OnLoadingChanged(this, new LoadingChangedEventArgs(isLoading));
-                    }, null);
-                }
-
-                prevIsLoading = isLoading;
-
-                Thread.Sleep(15);
+                return null;
             }
-        }
-    }
 
-    class LoadingChangedEventArgs : EventArgs
-    {
-        public bool IsLoading { get; private set; }
-
-        public LoadingChangedEventArgs(bool isLoading)
-        {
-            this.IsLoading = isLoading;
+            return game;
         }
     }
 }
