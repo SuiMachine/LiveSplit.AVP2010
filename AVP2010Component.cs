@@ -1,13 +1,9 @@
 ﻿using LiveSplit.Model;
-using LiveSplit.TimeFormatters;
 using LiveSplit.UI.Components;
 using LiveSplit.UI;
 using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Xml;
 using System.Windows.Forms;
-using System.Diagnostics;
 
 namespace LiveSplit.AVP2010
 {
@@ -18,6 +14,7 @@ namespace LiveSplit.AVP2010
             get { return "AVP2010"; }
         }
 
+        protected InfoTimeComponent InternalComponent { get; set; }
         public AVP2010Settings Settings { get; set; }
 
         public bool Disposed { get; private set; }
@@ -29,10 +26,9 @@ namespace LiveSplit.AVP2010
 
         public AVP2010Component(LiveSplitState state, bool isLayoutComponent)
         {
+            _timer = new TimerModel { CurrentState = state };
             _state = state;
-            this.IsLayoutComponent = isLayoutComponent;
-
-           _timer = new TimerModel { CurrentState = state };
+            _timer.CurrentState.OnStart += timer_OnStart;
 
             _gameMemory = new GameMemory(this.Settings);
             _gameMemory.OnLoadStarted += gameMemory_OnLoadStarted;
@@ -43,8 +39,7 @@ namespace LiveSplit.AVP2010
 
         public override void Dispose()
         {
-            this.Disposed = true;
-
+            _timer.CurrentState.OnStart -= timer_OnStart;
             _state.OnStart -= State_OnStart;
 
             if (_gameMemory != null)
@@ -54,6 +49,11 @@ namespace LiveSplit.AVP2010
 
         }
 
+        private void timer_OnStart(object sender, EventArgs e)
+        {
+            _timer.InitializeGameTime();
+        }
+
         void State_OnStart(object sender, EventArgs e)
         {
             _gameMemory.resetSplitStates();
@@ -61,12 +61,12 @@ namespace LiveSplit.AVP2010
 
         void gameMemory_OnLoadStarted(object sender, EventArgs e)
         {
-            _state.IsGameTimePaused = true;
+            _timer.CurrentState.IsGameTimePaused = true;
         }
 
         void gameMemory_OnLoadFinished(object sender, EventArgs e)
         {
-            _state.IsGameTimePaused = false;
+            _timer.CurrentState.IsGameTimePaused = false;
         }
 
         public override XmlNode GetSettings(XmlDocument document)
