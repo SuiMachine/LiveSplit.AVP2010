@@ -32,7 +32,7 @@ If you wish to show Real Time on your layout, download AlternateTimingMethod fro
 
 Credits
 -------
-  * [SuicideMachine](http://twitch.tv/suicidemachine)
+  * [SuicideMachine](http://twitch.tv/suimachine)
   * [jamacanbacn](http://www.twitch.tv/jamacanbacn) for re-scanning my pointers.
   * [DrTChops](http://twitch.tv/drtchops) for helping me with it.
   * Plugin is based off [LiveSplit.Dishonored](https://github.com/fatalis/LiveSplit.Dishonored) by [Fatalis](http://twitch.tv/fatalis_).
